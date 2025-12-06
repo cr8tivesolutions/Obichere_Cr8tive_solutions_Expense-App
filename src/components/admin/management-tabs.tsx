@@ -430,5 +430,3 @@ export function ManagementTabs() {
     </Tabs>
   );
 }
-
-    
