@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { User, BusinessUnit, UserRole } from '@/lib/types';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import {
@@ -25,6 +26,7 @@ import {
   setDoc,
   deleteDoc,
   updateDoc,
+  addDoc,
 } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import {
@@ -47,6 +49,8 @@ export function ManagementTabs() {
   const [selectedManagerBU, setSelectedManagerBU] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
   const [isSavingUser, setIsSavingUser] = useState(false);
+  const [newBusinessUnit, setNewBusinessUnit] = useState('');
+  const [isCreatingBU, setIsCreatingBU] = useState(false);
 
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -171,6 +175,36 @@ export function ManagementTabs() {
     }
   };
 
+  const handleCreateBusinessUnit = async () => {
+    if (!firestore || !newBusinessUnit.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Business unit name cannot be empty.',
+      });
+      return;
+    }
+    setIsCreatingBU(true);
+    try {
+      await addDoc(collection(firestore, 'businessUnits'), {
+        name: newBusinessUnit.trim(),
+      });
+      toast({
+        title: 'Success',
+        description: 'Business unit created.',
+      });
+      setNewBusinessUnit('');
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error creating business unit',
+        description: error.message,
+      });
+    } finally {
+      setIsCreatingBU(false);
+    }
+  };
+
   const managers =
     managerRoles
       ?.map((role) => {
@@ -187,10 +221,11 @@ export function ManagementTabs() {
       .filter((m) => m.userName && m.businessUnitName) || [];
 
   return (
-    <Tabs defaultValue="users">
+    <Tabs defaultValue="users" className="w-full">
       <TabsList>
         <TabsTrigger value="users">Users</TabsTrigger>
         <TabsTrigger value="manager-roles">Manager Roles</TabsTrigger>
+        <TabsTrigger value="business-units">Business Units</TabsTrigger>
       </TabsList>
       <TabsContent value="users">
         <Card>
@@ -332,6 +367,55 @@ export function ManagementTabs() {
           </CardContent>
         </Card>
       </TabsContent>
+      <TabsContent value="business-units">
+        <Card>
+          <CardHeader>
+            <CardTitle>Business Unit Management</CardTitle>
+            <CardDescription>
+              Add or manage business units for your organization.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-end space-x-4">
+              <div className="space-y-2 flex-1">
+                <Label htmlFor="bu-name">New Business Unit Name</Label>
+                <Input
+                  id="bu-name"
+                  value={newBusinessUnit}
+                  onChange={(e) => setNewBusinessUnit(e.target.value)}
+                  placeholder="e.g., Marketing, Engineering"
+                />
+              </div>
+              <Button onClick={handleCreateBusinessUnit} disabled={isCreatingBU}>
+                {isCreatingBU ? 'Creating...' : 'Create Business Unit'}
+              </Button>
+            </div>
+            <div>
+              <h3 className="mb-4 text-lg font-medium">
+                Existing Business Units
+              </h3>
+              {businessUnitsLoading ? (
+                <p>Loading business units...</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {businessUnits?.map((bu) => (
+                      <TableRow key={bu.id}>
+                        <TableCell>{bu.name}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
 
       {selectedUser && businessUnits && (
         <EditUserDialog
@@ -346,3 +430,5 @@ export function ManagementTabs() {
     </Tabs>
   );
 }
+
+    
