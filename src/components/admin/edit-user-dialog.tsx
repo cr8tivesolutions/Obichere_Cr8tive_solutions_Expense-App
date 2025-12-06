@@ -18,16 +18,18 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { User, BusinessUnit, UserRole } from '@/lib/types';
-import { doc, updateDoc } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
-import { useState } from 'react';
-import { useToast } from '@/components/ui/use-toast';
+import { useState, useEffect } from 'react';
 
 interface EditUserDialogProps {
   isOpen: boolean;
   onClose: () => void;
   user: User;
   businessUnits: BusinessUnit[];
+  onSave: (updatedData: {
+    role: UserRole;
+    businessUnitId: string;
+  }) => Promise<void>;
+  isSaving: boolean;
 }
 
 export function EditUserDialog({
@@ -35,47 +37,24 @@ export function EditUserDialog({
   onClose,
   user,
   businessUnits,
+  onSave,
+  isSaving,
 }: EditUserDialogProps) {
-  const firestore = useFirestore();
-  const { toast } = useToast();
-  const [selectedRole, setSelectedRole] = useState<UserRole>(
-    user.role || 'employee'
-  );
-  const [selectedBusinessUnit, setSelectedBusinessUnit] = useState<string>(
-    user.businessUnitId || ''
-  );
-  const [isSaving, setIsSaving] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<UserRole>('employee');
+  const [selectedBusinessUnit, setSelectedBusinessUnit] = useState<string>('');
 
-  const handleSave = async () => {
-    if (!firestore) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Firestore not available.',
-      });
-      return;
+  useEffect(() => {
+    if (user) {
+      setSelectedRole(user.role || 'employee');
+      setSelectedBusinessUnit(user.businessUnitId || '');
     }
-    setIsSaving(true);
-    try {
-      const userRef = doc(firestore, 'users', user.uid);
-      await updateDoc(userRef, {
-        role: selectedRole,
-        businessUnitId: selectedBusinessUnit,
-      });
-      toast({
-        title: 'Success',
-        description: 'User updated successfully.',
-      });
-      onClose();
-    } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error updating user',
-        description: error.message,
-      });
-    } finally {
-      setIsSaving(false);
-    }
+  }, [user]);
+
+  const handleSave = () => {
+    onSave({
+      role: selectedRole,
+      businessUnitId: selectedBusinessUnit,
+    });
   };
 
   return (

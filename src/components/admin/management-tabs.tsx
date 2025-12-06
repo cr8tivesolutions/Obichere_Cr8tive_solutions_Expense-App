@@ -8,9 +8,24 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { User, BusinessUnit } from '@/lib/types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { User, BusinessUnit, UserRole } from '@/lib/types';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, query } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  doc,
+  setDoc,
+  deleteDoc,
+  updateDoc,
+} from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import {
   Table,
@@ -22,13 +37,19 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { EditUserDialog } from '@/components/admin/edit-user-dialog';
-import { ManagerRolesTab } from '@/components/admin/manager-roles-tab';
 import { useMemoFirebase } from '@/firebase/firestore/use-memo-firebase';
+import { useToast } from '@/components/ui/use-toast';
 
 export function ManagementTabs() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedManager, setSelectedManager] = useState('');
+  const [selectedManagerBU, setSelectedManagerBU] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [isSavingUser, setIsSavingUser] = useState(false);
+
   const firestore = useFirestore();
+  const { toast } = useToast();
 
   const usersQuery = useMemoFirebase(
     () => (firestore ? query(collection(firestore, 'users')) : null),
@@ -45,6 +66,13 @@ export function ManagementTabs() {
   const { data: businessUnits, isLoading: businessUnitsLoading } =
     useCollection<BusinessUnit>(businessUnitsQuery);
 
+  const managerRolesQuery = useMemoFirebase(
+    () => (firestore ? query(collection(firestore, 'manager_roles')) : null),
+    [firestore]
+  );
+  const { data: managerRoles, isLoading: managerRolesLoading } =
+    useCollection(managerRolesQuery);
+
   const handleEditClick = (user: User) => {
     setSelectedUser(user);
     setIsEditDialogOpen(true);
@@ -54,6 +82,109 @@ export function ManagementTabs() {
     setIsEditDialogOpen(false);
     setSelectedUser(null);
   };
+
+  const handleSaveUser = async (updatedData: {
+    role: UserRole;
+    businessUnitId: string;
+  }) => {
+    if (!firestore || !selectedUser) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'An unexpected error occurred.',
+      });
+      return;
+    }
+    setIsSavingUser(true);
+    try {
+      const userRef = doc(firestore, 'users', selectedUser.uid);
+      await updateDoc(userRef, {
+        role: updatedData.role,
+        businessUnitId: updatedData.businessUnitId,
+      });
+      toast({
+        title: 'Success',
+        description: 'User updated successfully.',
+      });
+      handleDialogClose();
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error updating user',
+        description: error.message,
+      });
+    } finally {
+      setIsSavingUser(false);
+    }
+  };
+
+  const handleAssignManager = async () => {
+    if (!firestore || !selectedManager || !selectedManagerBU) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Please select a user and a business unit.',
+      });
+      return;
+    }
+    setIsAssigning(true);
+    try {
+      const managerRef = doc(
+        firestore,
+        `manager_roles/${selectedManagerBU}_${selectedManager}`
+      );
+      await setDoc(managerRef, {
+        userId: selectedManager,
+        businessUnitId: selectedManagerBU,
+      });
+      toast({
+        title: 'Success',
+        description: 'Manager assigned successfully.',
+      });
+      setSelectedManager('');
+      setSelectedManagerBU('');
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error assigning manager',
+        description: error.message,
+      });
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  const handleRemoveManager = async (roleId: string) => {
+    if (!firestore) return;
+    try {
+      await deleteDoc(doc(firestore, 'manager_roles', roleId));
+      toast({
+        title: 'Success',
+        description: 'Manager role removed.',
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error removing manager',
+        description: error.message,
+      });
+    }
+  };
+
+  const managers =
+    managerRoles
+      ?.map((role) => {
+        const user = users?.find((u) => u.uid === role.userId);
+        const businessUnit = businessUnits?.find(
+          (bu) => bu.id === role.businessUnitId
+        );
+        return {
+          id: role.id,
+          userName: user?.displayName || user?.email,
+          businessUnitName: businessUnit?.name,
+        };
+      })
+      .filter((m) => m.userName && m.businessUnitName) || [];
 
   return (
     <Tabs defaultValue="users">
@@ -114,10 +245,92 @@ export function ManagementTabs() {
         </Card>
       </TabsContent>
       <TabsContent value="manager-roles">
-        <ManagerRolesTab
-          users={users || []}
-          businessUnits={businessUnits || []}
-        />
+        <Card>
+          <CardHeader>
+            <CardTitle>Manager Role Assignment</CardTitle>
+            <CardDescription>
+              Assign manager roles to users for specific business units.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-end space-x-4">
+              <div className="space-y-2 flex-1">
+                <Label htmlFor="user-select">User</Label>
+                <Select
+                  value={selectedManager}
+                  onValueChange={setSelectedManager}
+                >
+                  <SelectTrigger id="user-select">
+                    <SelectValue placeholder="Select a user" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users
+                      ?.filter((u) => u.role === 'manager')
+                      .map((user) => (
+                        <SelectItem key={user.uid} value={user.uid}>
+                          {user.displayName || user.email}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 flex-1">
+                <Label htmlFor="bu-select">Business Unit</Label>
+                <Select
+                  value={selectedManagerBU}
+                  onValueChange={setSelectedManagerBU}
+                >
+                  <SelectTrigger id="bu-select">
+                    <SelectValue placeholder="Select a business unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {businessUnits?.map((bu) => (
+                      <SelectItem key={bu.id} value={bu.id}>
+                        {bu.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={handleAssignManager} disabled={isAssigning}>
+                {isAssigning ? 'Assigning...' : 'Assign Manager'}
+              </Button>
+            </div>
+            <div>
+              <h3 className="mb-4 text-lg font-medium">Current Managers</h3>
+              {managerRolesLoading ? (
+                <p>Loading managers...</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Manager</TableHead>
+                      <TableHead>Business Unit</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {managers.map((manager) => (
+                      <TableRow key={manager.id}>
+                        <TableCell>{manager.userName}</TableCell>
+                        <TableCell>{manager.businessUnitName}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleRemoveManager(manager.id!)}
+                          >
+                            Remove
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </TabsContent>
 
       {selectedUser && businessUnits && (
@@ -126,6 +339,8 @@ export function ManagementTabs() {
           onClose={handleDialogClose}
           user={selectedUser}
           businessUnits={businessUnits}
+          onSave={handleSaveUser}
+          isSaving={isSavingUser}
         />
       )}
     </Tabs>
