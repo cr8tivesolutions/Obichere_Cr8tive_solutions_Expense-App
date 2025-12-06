@@ -1,0 +1,52 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        
+        
+        {
+            "type": "gdb",
+            "request": "attach",
+            "name": "Debug Microcontroller",
+            "target": "extended-remote /dev/cu.usbmodem00000000",
+            "executable": "./bin/executable.elf",
+            "cwd": "${workspaceRoot}",
+            "autorun": [
+                "monitor tpwr enable",
+                "monitor swdp_scan",
+                "attach 1",
+                "load ./bin/executable.elf"
+            ]
+        },
+        {
+            "type": "gdb",
+            "request": "launch",
+            "name": "Launch Program (SSH)",
+            "target": "./bin/executable",
+            "cwd": "${workspaceRoot}",
+            "ssh": {
+                "host": "127.0.0.1",
+                "cwd": "/tmp/working",
+                "keyfile": "/home/my_user/.ssh/id_rsa",
+                "user": "remote_user",
+                "sourceFileMap": {
+                    "Launch Program (SSH)": "${workspaceRoot}"
+                }
+            },
+            "valuesFormatting": "parseText"
+        },
+
+
+
+        {
+            "name": "Debug",
+            "type": "mago-mi",
+            "request": "launch",
+            "target": "./bin/executable",
+            "cwd": "${workspaceRoot}",
+            "valuesFormatting": "parseText"
+        }
+    ]
+}
