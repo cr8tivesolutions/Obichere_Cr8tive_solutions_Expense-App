@@ -33,7 +33,7 @@ export function NavLinks() {
     }
 
     return baseLinks;
-  }, [user]);
+  }, [user?.role]);
 
   return (
     <>

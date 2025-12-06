@@ -3,17 +3,21 @@
 import Link from 'next/link';
 import { PowerIcon } from 'lucide-react';
 import { NavLinks } from './nav-links';
-import { auth } from '@/firebase/config';
-import { signOut } from 'firebase/auth';
+import { getAuth, signOut } from 'firebase/auth';
+import { useFirebaseApp } from '@/firebase';
 import { useRouter } from 'next/navigation';
 
 export default function Sidebar() {
   const router = useRouter();
+  const app = useFirebaseApp();
 
   const handleSignOut = async () => {
+    if (!app) return;
     try {
+      const auth = getAuth(app);
       await signOut(auth);
-      router.push('/');
+      // Using router.push('/') might be cached; window.location ensures a full reload.
+      window.location.href = '/';
     } catch (error) {
       console.error('Error signing out: ', error);
     }
