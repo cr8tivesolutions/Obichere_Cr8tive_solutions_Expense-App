@@ -265,7 +265,7 @@ export function ManagementTabs() {
                   </SelectTrigger>
                   <SelectContent>
                     {users
-                      ?.filter((u) => u.role === 'manager')
+                      ?.filter((u) => u && u.role === 'manager')
                       .map((user) => (
                         <SelectItem key={user.uid} value={user.uid}>
                           {user.displayName || user.email}
