@@ -5,27 +5,35 @@ import { usePathname } from 'next/navigation';
 import { Home, FileText, UserCog } from 'lucide-react';
 import { useUser } from '@/firebase';
 import { cn } from '@/lib/utils';
+import { useMemo } from 'react';
 
 export function NavLinks() {
   const pathname = usePathname();
   const { user } = useUser();
 
-  const links = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home },
-    {
-      name: 'My Expenses',
-      href: '/dashboard/expenses',
-      icon: FileText,
-    },
-  ];
+  const links = useMemo(() => {
+    const baseLinks = [
+      { name: 'Dashboard', href: '/dashboard', icon: Home },
+      {
+        name: 'My Expenses',
+        href: '/dashboard/expenses',
+        icon: FileText,
+      },
+    ];
 
-  if (user?.role === 'admin') {
-    links.push({
-      name: 'Admin',
-      href: '/dashboard/admin',
-      icon: UserCog,
-    });
-  }
+    if (user?.role === 'admin') {
+      return [
+        ...baseLinks,
+        {
+          name: 'Admin',
+          href: '/dashboard/admin',
+          icon: UserCog,
+        },
+      ];
+    }
+
+    return baseLinks;
+  }, [user]);
 
   return (
     <>

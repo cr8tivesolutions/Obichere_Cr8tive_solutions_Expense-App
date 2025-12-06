@@ -4,7 +4,6 @@ import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { ManagementTabs } from '@/components/admin/management-tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function AdminPage() {
   const { user, isLoading } = useUser();
@@ -16,9 +15,9 @@ export default function AdminPage() {
     }
   }, [user, isLoading, router]);
 
-  if (isLoading || user?.role !== 'admin') {
+  if (isLoading || !user || user.role !== 'admin') {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-screen">
         <p>Loading or unauthorized...</p>
       </div>
     );
@@ -31,5 +30,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    

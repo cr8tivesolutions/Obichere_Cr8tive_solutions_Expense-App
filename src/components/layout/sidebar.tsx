@@ -11,8 +11,12 @@ export default function Sidebar() {
   const router = useRouter();
 
   const handleSignOut = async () => {
-    await signOut(auth);
-    router.push('/');
+    try {
+      await signOut(auth);
+      router.push('/');
+    } catch (error) {
+      console.error('Error signing out: ', error);
+    }
   };
 
   return (
